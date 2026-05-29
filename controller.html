@@ -155,17 +155,17 @@
       <div class="indicator"></div>
       <span class="label">Output 5</span>
       <span class="state">off</span>
-    </button>    
+    </button>
     <button class="toggle" data-i="5" disabled>
       <div class="indicator"></div>
       <span class="label">Output 6</span>
       <span class="state">off</span>
-    </button>    
+    </button>
     <button class="toggle" data-i="6" disabled>
       <div class="indicator"></div>
       <span class="label">Output 7</span>
       <span class="state">off</span>
-    </button>    
+    </button>
     <button class="toggle" data-i="7" disabled>
       <div class="indicator"></div>
       <span class="label">Output 8</span>
@@ -179,6 +179,16 @@
     const SERVICE_UUID = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
     const CHAR_UUID    = 'beb5483e-36e1-4688-b7f5-ea07361b26a8';
 
+    // ── Radio groups ────────────────────────────────────────────
+    // List sets of button indices that should be mutually exclusive.
+    // e.g. [[0,1], [2,3]] makes outputs 1&2 a group and 3&4 a group.
+    // Buttons not listed here work as normal independent toggles.
+    const GROUPS = [
+      [6, 7],   // Outputs 6 and 7 — only one on at a time
+      // [2, 3],  // Uncomment to make outputs 3 and 4 a group too
+    ];
+    // ────────────────────────────────────────────────────────────
+
     const dot        = document.getElementById('dot');
     const statusEl   = document.getElementById('status');
     const connectBtn = document.getElementById('connect-btn');
@@ -187,8 +197,12 @@
 
     let device = null;
     let char   = null;
-    let state  = 0;          // bitmask — bit 0 = output 1, etc.
+    let state  = 0;
     let intentionalDisconnect = false;
+
+    function groupOf(i) {
+      return GROUPS.find(g => g.includes(i)) || null;
+    }
 
     function log(msg) {
       logEl.textContent = msg;
@@ -226,7 +240,14 @@
     toggles.forEach(t => {
       t.addEventListener('click', async () => {
         const i = parseInt(t.dataset.i);
-        state ^= (1 << i);
+        const group = groupOf(i);
+        if (group) {
+          const wasOn = (state >> i) & 1;
+          group.forEach(j => state &= ~(1 << j));
+          if (!wasOn) state |= (1 << i);
+        } else {
+          state ^= (1 << i);
+        }
         renderToggles();
         await send();
       });
